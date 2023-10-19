@@ -1,88 +1,84 @@
-from fman import DirectoryPaneCommand, QuicksearchItem, show_quicksearch, \
-    show_alert, show_prompt, show_status_message, \
-    load_json, save_json
-from fman.url import as_human_readable, as_url
+import os, traceback
 import fman.fs as fs
+from fman.url import as_human_readable, as_url
+from fman import DirectoryPaneCommand, QuicksearchItem, show_quicksearch
+from fman import show_alert, show_prompt, show_status_message, load_json, save_json
 
+SETTING_FILE = "Bookmarks.json"
 
-#                      _              _
-#                     | |            | |
-#   ___ ___  _ __  ___| |_ __ _ _ __ | |_ ___
-#  / __/ _ \| '_ \/ __| __/ _` | '_ \| __/ __|
-# | (_| (_) | | | \__ \ || (_| | | | | |_\__ \
-#  \___\___/|_| |_|___/\__\__,_|_| |_|\__|___/
+def fuzzy_search(target, query, offset = 0):
+    i, j = 0, 0
+    result = []
 
-BOOKMARKS_FILENAME = "Bookmarks.json"
+    def eatup(i, j):
+        while i+offset < len(target) and j < len(query) and target[i+offset] == query[j]:
+            result.append(i+offset)
+            i += 1
+            j += 1
+        return i, j
+    def skip(i, j):
+        while j < len(query) and query[j] == ' ': j += 1
+        while i+offset < len(target) and j < len(query) and target[i+offset] != query[j]:
+            i += 1
+        return i, j
+    
+    while True:
+        if j == len(query): return result
+        if i+offset == len(target): return []
+        if target[i+offset] == query[j]:
+            i, j = eatup(i, j)
+        elif i == 0 or query[j] == ' ':
+            i, j = skip(i, j)
+        else:
+            return fuzzy_search(target, query, result[0]+1)
 
-
-#  _      _     _
-# | |    (_)   | |
-# | |     _ ___| |_
-# | |    | / __| __|
-# | |____| \__ \ |_
-# |______|_|___/\__|
+class BookmarkEditSettings(DirectoryPaneCommand):
+    def __call__(self):
+        filepath = load_json(SETTING_FILE)['bookmark list file path']
+        os.system(f'code {filepath}')
 
 class BookmarksList(DirectoryPaneCommand):
-
     def __call__(self):
-        # preload the bookmarks
-        self.bookmarks = load_json(BOOKMARKS_FILENAME)
-
+        self.bookmarks = [v.strip() for v in open(load_json(SETTING_FILE)['bookmark list file path'], encoding='utf8').readlines()]
         result = show_quicksearch(self._listing)
-
         if result:
-            # query, value = result
-            # show_alert('You typed %r and selected %r.' % (query, value))
             self.pane.set_path(as_url(result[1]))
-            # bookmark_path = self._findInBookmarks(value) # extract path of selected bookmark
-            # if bookmark_path and bookmark_path[0] and fs.exists(bookmark_path[0]['url']):
-            #     self.pane.set_path(bookmark_path[0]['url'])
-
-
-    # return list of available bookmarks
     def _listing(self, query):
-        for item in self.bookmarks:
-            try:
-                index = item["name"].lower().index(query)
-            except ValueError as not_found:
-                continue
-            else:
-                # The characters that should be highlighted:
-                highlight = range(index, index + len(query))
-                yield QuicksearchItem(as_human_readable(item["url"]), \
-                    hint=item["name"], \
-                    highlight=highlight)
+        if query.strip():
+            for item in self.bookmarks:
+                index = fuzzy_search(item, query)
+                if index:
+                    yield QuicksearchItem(item, highlight=index)
+        else:
+            for item in self.bookmarks:
+                yield QuicksearchItem(item)
 
-
-    # filter available bookmarks to find the selection of the user
-    def _findInBookmarks(self, value):
-        return [x for x in self.bookmarks if x['name']==value]
-
-
-#              _     _
-#     /\      | |   | |
-#    /  \   __| | __| |
-#   / /\ \ / _` |/ _` |
-#  / ____ \ (_| | (_| |
-# /_/    \_\__,_|\__,_|
-
-# Different command to add a new bookmark
 class BookmarkAdd(DirectoryPaneCommand):
     def __call__(self):
-        bookmarks = load_json(BOOKMARKS_FILENAME, default=[])
-        current_folder = self.pane.get_path()
-        # TODO check if it's already bookmarked and refuse to add a new entry
+        filepath = load_json(SETTING_FILE)['bookmark list file path']
+        bookmarks = [v.strip() for v in open(load_json(SETTING_FILE)['bookmark list file path'], encoding='utf8').readlines()]
+        current_folder = as_human_readable(self.pane.get_path()).replace('\\', '/')
+        if current_folder not in bookmarks:
+            bookmarks.append(current_folder)
+            show_alert(current_folder + ' added to bookmarks')
+        bookmarks.sort()
+        open(filepath, 'w', encoding='utf8').write('\n'.join(bookmarks))
 
-        bookmark_name, ok = show_prompt("Bookmark name:")
-        if ok and bookmark_name:
-            # new bookmark entry
-            newBookmark = {}
-            newBookmark["name"] = bookmark_name
-            newBookmark["url"]  = current_folder
-            # add new entry to list
-            bookmarks.append(newBookmark)
-            # save in json bookmarks file
-            save_json(BOOKMARKS_FILENAME, bookmarks)
-            show_status_message("Bookmark created.", 2)
+class BookmarkDelete(DirectoryPaneCommand):
+    def __call__(self):
+        filepath = load_json(SETTING_FILE)['bookmark list file path']
+        self.bookmarks = [v.strip() for v in open(load_json(SETTING_FILE)['bookmark list file path'], encoding='utf8').readlines()]
+        result = show_quicksearch(self._listing)
+        if result:
+            if result[1] in self.bookmarks:
+                self.bookmarks.remove(result[1])
+                open(filepath, 'w', encoding='utf8').write('\n'.join(self.bookmarks))
+    def _listing(self, query):
+        if query.strip():
+            for item in self.bookmarks:
+                index = fuzzy_search(item, query)
+                if index:
+                    yield QuicksearchItem(item, highlight=index)
         else:
-            show_status_message("Bookmark not created.", 2)
+            for item in self.bookmarks:
+                yield QuicksearchItem(item, highlight=index)
