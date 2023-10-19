@@ -24,23 +24,23 @@ def fuzzy_search(target, query, offset = 0):
     result = []
 
     def eatup(i, j):
-        while i < len(target) and j < len(query) and target[i] == query[j]:
-            result.append(i + offset)
+        while i+offset < len(target) and j < len(query) and target[i+offset] == query[j]:
+            result.append(i+offset)
             i += 1
             j += 1
         return i, j
     def skip(i, j):
         while j < len(query) and query[j] == ' ': j += 1
-        while i < len(target) and j < len(query) and target[i] != query[j]:
+        while i+offset < len(target) and j < len(query) and target[i+offset] != query[j]:
             i += 1
         return i, j
     
     while True:
         if j == len(query): return result
-        if i == len(target): return []
-        if target[i] == query[j]:
+        if i+offset == len(target): return []
+        if target[i+offset] == query[j]:
             i, j = eatup(i, j)
         elif i == 0 or query[j] == ' ':
             i, j = skip(i, j)
         else:
-            return fuzzy_search(target[result[0]+1:], query, result[0]+1)
+            return fuzzy_search(target, query, result[0]+1)
