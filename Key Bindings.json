@@ -1,3 +1,5 @@
 [
-	{ "keys": ["F1"], "command": "command_palette" }
+	{ "keys": ["F1"], "command": "command_palette" },
+	{ "keys": ["Ctrl+Shift+K"], "command": "mini_select_file_and_move_cursor_up" },
+	{ "keys": ["Ctrl+Shift+J"], "command": "mini_select_file_and_move_cursor_down" }
 ]

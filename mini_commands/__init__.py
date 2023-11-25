@@ -6,6 +6,31 @@ from fman.url import as_human_readable, as_url
 from fman import DirectoryPaneCommand, QuicksearchItem
 from fman import show_alert, show_prompt, show_quicksearch
 
+class MiniSelectFileAndMoveCursorDown(DirectoryPaneCommand):
+    def __call__(self):
+        current_file = self.pane.get_file_under_cursor()
+        if current_file:
+            # 將當前檔案設為選取狀態
+            self.pane.select([current_file])
+        # 移動游標向上
+        self.pane.move_cursor_down()
+class MiniSelectFileAndMoveCursorUp(DirectoryPaneCommand):
+    def __call__(self):
+        current_file = self.pane.get_file_under_cursor()
+        if current_file:
+            # 將當前檔案設為選取狀態
+            self.pane.select([current_file])
+        # 移動游標向上
+        self.pane.move_cursor_up()
+class MiniExtractWith7z(DirectoryPaneCommand):
+    def __call__(self):
+        current_file = self.pane.get_file_under_cursor()
+        os.chdir(as_human_readable(self.pane.get_path()))
+        try:
+            subprocess.run(["7z.exe", "x", as_human_readable(current_file)], check=True)
+            show_alert(f"Extracted File Successful: {current_file}")
+        except subprocess.CalledProcessError as e:
+            show_alert(f"Extract Failed: {e}")
 class MiniAddTo7z(DirectoryPaneCommand):
     def __call__(self):
         selected_files = self.pane.get_selected_files()
