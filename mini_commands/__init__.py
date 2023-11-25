@@ -4,8 +4,14 @@ from . import utils
 import fman.fs as fs
 from fman.url import as_human_readable, as_url
 from fman import DirectoryPaneCommand, QuicksearchItem
-from fman import show_alert, show_prompt, show_quicksearch
+from fman import show_alert, show_prompt, show_quicksearch, show_status_message
 
+class MiniCopyPathToClipboard(DirectoryPaneCommand):
+    def __call__(self):
+        current_path = self.pane.get_path()
+        if current_path:
+            os.system(f'echo {as_human_readable(current_path)} | clip')
+            show_status_message('Path copied to clipboard')
 class MiniSelectFileAndMoveCursorDown(DirectoryPaneCommand):
     def __call__(self):
         current_file = self.pane.get_file_under_cursor()
